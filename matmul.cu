@@ -15,6 +15,23 @@
 
 
 // TODO: write the kernel that is responsible for actual multiplication
+__global__ void sgemm_naive(int M, int N, int K, float alpha, const float *A, const float *B, float beta, float *C){
+
+    const uint x = blockIdx.x * blockDim.x + threadIdx.x;
+    const uint y = blockIdx.y * blockDim.y + threadIdx.y;
+
+    if (x<M && y<N){
+
+        float temp = 0.0;
+        for (int i=0; i<K; i++){
+            temp += A[x*K+i] * B[i*M+y];
+        }
+
+        // C = α*(A@B)+β*C
+        C[x*N+y] = alpha * temp + beta * C[x*N+y];
+    } 
+
+}
 
 int main(int argc, const char *argv[]){
 
@@ -59,7 +76,7 @@ int main(int argc, const char *argv[]){
     CUDA_CHECK(cudaEventRecord(start));
 
     // launch the kernel
-    // kernell call will go here
+    sgemm_naive<<<gridDim, blockDim>>>(M, N, K, alpha, d_A, d_B, beta, d_C);
     CUDA_CHECK(cudaGetLastError());
 
     CUDA_CHECK(cudaEventRecord(stop));
@@ -70,11 +87,8 @@ int main(int argc, const char *argv[]){
     CUDA_CHECK(cudaMemcpy(h_C, d_C, M*N*sizeof(float), cudaMemcpyDeviceToHost));
 
     const float gflops = ((float) M*N * (2*K-1)) / (1e6 * ms);
-    printf("SGEMM execution time: %.2f ms, %.1f GFLOPs/s\n", ms, gflops);
-
     printf("MatMul in CUDA \n");
-    return 0;
-
+    printf("SGEMM execution time: %.2f ms, %.1f GFLOPs/s\n", ms, gflops);
 
     // free up the host (cpu) memory
     delete[] h_A;
